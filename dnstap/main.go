@@ -34,9 +34,10 @@ var (
 	flagReadFile   = flag.String("r", "", "read dnstap payloads from file")
 	flagReadSock   = flag.String("u", "", "read dnstap payloads from unix socket")
 	flagWriteFile  = flag.String("w", "-", "write output to file")
-	flagAppendFile = flag.Bool("a", false, "append to the given file, do not overwrite. valid only when outputting a text or YAML file.")
+	flagAppendFile = flag.Bool("a", false, "append to the given file, do not overwrite. valid only when outputting a text file.")
 	flagQuietText  = flag.Bool("q", false, "use quiet text output")
 	flagYamlText   = flag.Bool("y", false, "use verbose YAML output")
+	flagJsonText   = flag.Bool("j", false, "use verbose JSON output")
 )
 
 func usage() {
@@ -59,7 +60,7 @@ Quiet text output format mnemonics:
 `)
 }
 
-func outputOpener(fname string, text, yaml bool, append bool) func() dnstap.Output {
+func outputOpener(fname string, text, yaml bool, json bool, append bool) func() dnstap.Output {
 	return func() dnstap.Output {
 		var o dnstap.Output
 		var err error
@@ -67,6 +68,8 @@ func outputOpener(fname string, text, yaml bool, append bool) func() dnstap.Outp
 			o, err = dnstap.NewTextOutputFromFilename(fname, dnstap.TextFormat, append)
 		} else if yaml {
 			o, err = dnstap.NewTextOutputFromFilename(fname, dnstap.YamlFormat, append)
+		} else if json {
+			o, err = dnstap.NewTextOutputFromFilename(fname, dnstap.JsonFormat, append)
 		} else {
 			o, err = dnstap.NewFrameStreamOutputFromFilename(fname)
 		}
@@ -125,7 +128,7 @@ func main() {
 	}
 
 	if *flagWriteFile == "-" {
-		if *flagQuietText == false && *flagYamlText == false {
+		if *flagQuietText == false && *flagYamlText == false && *flagJsonText == false {
 			*flagQuietText = true
 		}
 	}
@@ -137,6 +140,11 @@ func main() {
 		}
 	}
 
+	if *flagYamlText == true && *flagJsonText == true {
+		fmt.Fprintf(os.Stderr, "dnstap: Error: specify exactly one of -y or -j.\n")
+		os.Exit(1)
+	}
+
 	if *flagReadFile != "" && *flagReadSock != "" && *flagReadTcp != "" {
 		fmt.Fprintf(os.Stderr, "dnstap: Error: specify exactly one of -r, -u or -l.\n")
 		os.Exit(1)
@@ -144,7 +152,7 @@ func main() {
 
 	// Start the output loop.
 	output := make(chan []byte, 1)
-	opener := outputOpener(*flagWriteFile, *flagQuietText, *flagYamlText, *flagAppendFile)
+	opener := outputOpener(*flagWriteFile, *flagQuietText, *flagYamlText, *flagJsonText, *flagAppendFile)
 	outDone := make(chan struct{})
 	go outputLoop(opener, output, outDone)
 
