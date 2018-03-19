@@ -111,7 +111,7 @@ func convertJSONMessage(m *Message) JSONMessage {
 		msg := new(dns.Msg)
 		err := msg.Unpack(m.ResponseMessage)
 		if err != nil {
-			jMsg.ResponseMessage = "parse failed"
+			jMsg.ResponseMessage = fmt.Sprintf("parse failed: ", err)
 		} else {
 			jMsg.ResponseMessage = msg.String()
 		}
